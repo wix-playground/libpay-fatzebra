@@ -115,31 +115,8 @@ class FatzebraGatewayIT extends SpecWithJUnit {
         someDeal.id,
         someCustomerIpAddress,
         someCreditCard,
-        capture = false) returns(
-          StatusCodes.Created,
-          new Response[Purchase](
-            Some(Purchase(
-              authorization = "55355",
-              id = somePurchaseId,
-              card_number = null,
-              card_holder = null,
-              card_expiry = null,
-              card_token = null,
-              amount = 1000,
-              decimal_amount = 10.0,
-              successful = None,
-              authorized = true,
-              message = "Approved",
-              reference = someDeal.id,
-              currency = someCurrencyAmount.currency,
-              transaction_id = null,
-              settlement_date = null,
-              transaction_date = null,
-              response_code = "99",
-              captured = false,
-              captured_amount = null,
-              rrn = null,
-              cvv_match = "U"))))
+        capture = false
+      ) returns somePurchaseId
 
       fatzebra.authorize(
         merchantKey = merchantKey,
@@ -165,30 +142,8 @@ class FatzebraGatewayIT extends SpecWithJUnit {
         someDeal.id,
         someCustomerIpAddress,
         someCreditCard,
-        capture = false) errors(
-          StatusCodes.OK, new Response[Purchase](
-            Some(Purchase(
-              authorization = null,
-              id = somePurchaseId,
-              card_number = null,
-              card_holder = null,
-              card_expiry = null,
-              card_token = null,
-              amount = 1000,
-              decimal_amount = 10.0,
-              successful = Some(false),
-              authorized = false,
-              message = "Declined",
-              reference = someDeal.id,
-              currency = someCurrencyAmount.currency,
-              transaction_id = null,
-              settlement_date = null,
-              transaction_date = null,
-              response_code = "99",
-              captured = false,
-              captured_amount = null,
-              rrn = null,
-              cvv_match = "U"))))
+        capture = false
+      ) isDeclined(somePurchaseId)
 
       fatzebra.authorize(
         merchantKey = merchantKey,
@@ -210,30 +165,8 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       val someAmount = 11.1
 
       driver.aCaptureRequestFor(
-        someMerchant.username, someMerchant.password, someAuthorization.purchaseId, someAmount) returns(
-          StatusCodes.OK, new Response[Purchase](
-            Some(Purchase(
-              authorization = null,
-              id = someAuthorization.purchaseId,
-              card_number = null,
-              card_holder = null,
-              card_expiry = null,
-              card_token = null,
-              amount = 1110,
-              decimal_amount = 11.1,
-              successful = Some(true),
-              authorized = false,
-              message = "someMessage",
-              reference = "someReference",
-              currency = "USD",
-              transaction_id = null,
-              settlement_date = null,
-              transaction_date = null,
-              response_code = "0",
-              captured = true,
-              captured_amount = Some(1110),
-              rrn = null,
-              cvv_match = "U"))))
+        someMerchant.username, someMerchant.password, someAuthorization.purchaseId, someAmount
+      ) succeeds()
 
       fatzebra.capture(
         merchantKey = merchantKey,

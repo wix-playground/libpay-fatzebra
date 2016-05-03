@@ -5,7 +5,7 @@ import com.google.api.client.util.Base64
 import com.wix.hoopoe.http.testkit.EmbeddedHttpProbe
 import com.wix.pay.creditcard.CreditCard
 import com.wix.pay.fatzebra.model.Conversions._
-import com.wix.pay.fatzebra.model.{CaptureRequest, CreatePurchaseRequest, Purchase, Response}
+import com.wix.pay.fatzebra.model._
 import com.wix.pay.fatzebra.{CaptureRequestParser, CreatePurchaseRequestParser, PurchaseResponseParser}
 import com.wix.pay.model.CurrencyAmount
 import spray.http._
@@ -72,9 +72,9 @@ class FatzebraDriver(port: Int) {
       false
     }
 
-    def verifyContent(entity: HttpEntity): Boolean
+    protected def verifyContent(entity: HttpEntity): Boolean
 
-    def returns(statusCode: StatusCode, response: Response[Purchase]) {
+    def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
       probe.handlers += {
         case HttpRequest(
         HttpMethods.POST,
@@ -88,7 +88,7 @@ class FatzebraDriver(port: Int) {
       }
     }
 
-    def errors(statusCode: StatusCode, response: Response[Purchase]) {
+    def errors(statusCode: StatusCode, response: Response[Purchase]): Unit = {
       probe.handlers += {
         case HttpRequest(
         HttpMethods.POST,
@@ -128,6 +128,60 @@ class FatzebraDriver(port: Int) {
       val createPurchaseRequest = createPurchaseRequestParser.parse(entity.asString)
       createPurchaseRequest == expectedCreatePurchaseRequest
     }
+
+    def returns(purchaseId: String): Unit = {
+      returns(
+        statusCode = StatusCodes.Created,
+        response = new Response[Purchase](Some(Purchase(
+          authorization = "55355",
+          id = purchaseId,
+          card_number = null,
+          card_holder = null,
+          card_expiry = null,
+          card_token = null,
+          amount = 1000,
+          decimal_amount = 10.0,
+          successful = None,
+          authorized = true,
+          message = "Approved",
+          reference = reference,
+          currency = currencyAmount.currency,
+          transaction_id = null,
+          settlement_date = null,
+          transaction_date = null,
+          response_code = "99",
+          captured = false,
+          captured_amount = null,
+          rrn = null,
+          cvv_match = "U"))))
+    }
+
+    def isDeclined(purchaseId: String): Unit = {
+      returns(
+        statusCode = StatusCodes.OK,
+        response = new Response[Purchase](Some(Purchase(
+          authorization = null,
+          id = purchaseId,
+          card_number = null,
+          card_holder = null,
+          card_expiry = null,
+          card_token = null,
+          amount = 1000,
+          decimal_amount = 10.0,
+          successful = Some(false),
+          authorized = false,
+          message = "Declined",
+          reference = reference,
+          currency = currencyAmount.currency,
+          transaction_id = null,
+          settlement_date = null,
+          transaction_date = null,
+          response_code = "99",
+          captured = false,
+          captured_amount = null,
+          rrn = null,
+          cvv_match = "U"))))
+    }
   }
 
   class CaptureCtx(username: String,
@@ -141,6 +195,33 @@ class FatzebraDriver(port: Int) {
     override def verifyContent(entity: HttpEntity): Boolean = {
       val captureRequest = captureRequestParser.parse(entity.asString)
       captureRequest == expectedCaptureRequest
+    }
+
+    def succeeds(): Unit = {
+      returns(
+        statusCode = StatusCodes.OK,
+        response = new Response[Purchase](Some(Purchase(
+          authorization = null,
+          id = purchaseId,
+          card_number = null,
+          card_holder = null,
+          card_expiry = null,
+          card_token = null,
+          amount = Conversions.toFatzebraAmount(amount),
+          decimal_amount = amount,
+          successful = Some(true),
+          authorized = false,
+          message = "someMessage",
+          reference = "someReference",
+          currency = "USD",
+          transaction_id = null,
+          settlement_date = null,
+          transaction_date = null,
+          response_code = "0",
+          captured = true,
+          captured_amount = Some(Conversions.toFatzebraAmount(amount)),
+          rrn = null,
+          cvv_match = "U"))))
     }
   }
 }
