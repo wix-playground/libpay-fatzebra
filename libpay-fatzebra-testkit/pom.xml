@@ -2,12 +2,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.wix.pay</groupId>
     <artifactId>libpay-fatzebra-testkit</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
-    <name>libpay test-kit for Fat Zebra payment</name>
+    <name>libpay FatZebra payment gateway adapter test-kit</name>
     <description>libpay test-kit for Fat Zebra payment gateway</description>
+
 
     <developers>
         <developer>
@@ -33,12 +31,14 @@
         </developer>
     </developers>
 
+
     <parent>
         <groupId>com.wix.pay</groupId>
         <artifactId>libpay-fatzebra-parent</artifactId>
         <version>1.0.0-SNAPSHOT</version>
 		<relativePath>../libpay-fatzebra-parent</relativePath>
     </parent>
+
 
     <dependencies>
         <dependency>
