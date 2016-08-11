@@ -30,10 +30,6 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
                       endpointUrl: String = Endpoints.production,
                       merchantParser: FatzebraMerchantParser = new JsonFatzebraMerchantParser,
                       authorizationParser: FatzebraAuthorizationParser = new JsonFatzebraAuthorizationParser) extends PaymentGateway {
-  private val createPurchaseRequestParser = new CreatePurchaseRequestParser
-  private val captureRequestParser = new CaptureRequestParser
-  private val purchaseResponseParser = new PurchaseResponseParser
-
   override def authorize(merchantKey: String,
                          creditCard: CreditCard,
                          currencyAmount: CurrencyAmount,
@@ -45,13 +41,13 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
 
       val merchant = merchantParser.parse(merchantKey)
       val request = createPurchaseRequest(creditCard, currencyAmount, deal.get, customer.get, capture = false)
-      val requestJson = createPurchaseRequestParser.stringify(request)
+      val requestJson = CreatePurchaseRequestParser.stringify(request)
       val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
 
       response match {
         case ApprovedPurchase(authorization) => authorizationParser.stringify(FatzebraAuthorization(authorization))
-        case RejectedPurchase(message) => throw new PaymentRejectedException(message)
-        case ErroneousPurchase(errors) => throw new PaymentErrorException(errors)
+        case RejectedPurchase(message) => throw PaymentRejectedException(message)
+        case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
         case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
       }
     }
@@ -64,7 +60,7 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
       val merchant = merchantParser.parse(merchantKey)
       val authorization = authorizationParser.parse(authorizationKey)
       val request = CaptureRequest(amount = toFatzebraAmount(amount))
-      val requestJson = captureRequestParser.stringify(request)
+      val requestJson = CaptureRequestParser.stringify(request)
       val response = submitRequest(
         s"/purchases/${authorization.purchaseId}/capture",
         merchant.username,
@@ -73,8 +69,8 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
 
       response match {
         case CapturedPurchase(purchaseId) => purchaseId
-        case RejectedCapture(message) => throw new PaymentRejectedException(message)
-        case ErroneousPurchase(errors) => throw new PaymentErrorException(errors)
+        case RejectedCapture(message) => throw PaymentRejectedException(message)
+        case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
         case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
       }
     }
@@ -92,13 +88,13 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
 
       val merchant = merchantParser.parse(merchantKey)
       val request = createPurchaseRequest(creditCard, currencyAmount, deal.get, customer.get, capture = true)
-      val requestJson = createPurchaseRequestParser.stringify(request)
+      val requestJson = CreatePurchaseRequestParser.stringify(request)
       val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
 
       response match {
         case ApprovedPurchase(purchaseId) => purchaseId
-        case RejectedPurchase(message) => throw new PaymentRejectedException(message)
-        case ErroneousPurchase(errors) => throw new PaymentErrorException(errors)
+        case RejectedPurchase(message) => throw PaymentRejectedException(message)
+        case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
         case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
       }
     }
@@ -130,7 +126,7 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
     val httpResponse = httpRequest.execute()
 
     try {
-      purchaseResponseParser.parse(httpResponse.parseAsString())
+      PurchaseResponseParser.parse(httpResponse.parseAsString())
     } finally {
       httpResponse.ignore()
     }
@@ -165,7 +161,7 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
     } match {
       case Success(value) => Success(value)
       case Failure(e: PaymentException) => Failure(e)
-      case Failure(e) => Failure(new PaymentErrorException(e.getMessage, e))
+      case Failure(e) => Failure(PaymentErrorException(e.getMessage, e))
     }
   }
 }

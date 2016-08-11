@@ -4,7 +4,7 @@ import com.wix.pay.fatzebra.model.{Purchase, Response}
 import org.json4s.DefaultFormats
 import org.json4s.native.Serialization
 
-class PurchaseResponseParser {
+object PurchaseResponseParser {
   private implicit val formats = DefaultFormats
 
   def parse(str: String): Response[Purchase] = {

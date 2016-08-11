@@ -21,7 +21,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
 
 
   step {
-    driver.startProbe()
+    driver.start()
   }
 
   sequential
@@ -31,7 +31,9 @@ class FatzebraGatewayIT extends SpecWithJUnit {
     val merchantParser = new JsonFatzebraMerchantParser()
     val authorizationParser = new JsonFatzebraAuthorizationParser()
 
-    val someMerchant = new FatzebraMerchant("someUsername", "somePassword")
+    val someMerchant = FatzebraMerchant(
+      username = "someUsername",
+      password = "somePassword")
     val merchantKey = merchantParser.stringify(someMerchant)
 
     val fatzebra: PaymentGateway = new FatzebraGateway(
@@ -41,7 +43,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       endpointUrl = s"http://localhost:$fatzebraPort"
     )
 
-    driver.resetProbe()
+    driver.reset()
   }
 
   "authorize request via FatZebra gateway" should {
@@ -195,6 +197,6 @@ class FatzebraGatewayIT extends SpecWithJUnit {
 
 
   step {
-    driver.stopProbe()
+    driver.stop()
   }
 }

@@ -13,19 +13,16 @@ import spray.http._
 
 class FatzebraDriver(port: Int) {
   private val probe = new EmbeddedHttpProbe(port, EmbeddedHttpProbe.NotFoundHandler)
-  private val createPurchaseRequestParser = new CreatePurchaseRequestParser
-  private val captureRequestParser = new CaptureRequestParser
-  private val purchaseResponseParser = new PurchaseResponseParser
 
-  def startProbe() {
+  def start() {
     probe.doStart()
   }
 
-  def stopProbe() {
+  def stop() {
     probe.doStop()
   }
 
-  def resetProbe() {
+  def reset() {
     probe.handlers.clear()
   }
 
@@ -84,7 +81,7 @@ class FatzebraDriver(port: Int) {
         _) if isStubbedRequestEntity(entity, headers) =>
           HttpResponse(
             status = statusCode,
-            entity = HttpEntity(ContentTypes.`application/json`, purchaseResponseParser.stringify(response)))
+            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
 
@@ -98,7 +95,7 @@ class FatzebraDriver(port: Int) {
         _) if isStubbedRequestEntity(entity, headers) =>
           HttpResponse(
             status = statusCode,
-            entity = HttpEntity(ContentTypes.`application/json`, purchaseResponseParser.stringify(response)))
+            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
   }
@@ -125,7 +122,7 @@ class FatzebraDriver(port: Int) {
       capture = capture)
 
     override def verifyContent(entity: HttpEntity): Boolean = {
-      val createPurchaseRequest = createPurchaseRequestParser.parse(entity.asString)
+      val createPurchaseRequest = CreatePurchaseRequestParser.parse(entity.asString)
       createPurchaseRequest == expectedCreatePurchaseRequest
     }
 
@@ -193,7 +190,7 @@ class FatzebraDriver(port: Int) {
     )
 
     override def verifyContent(entity: HttpEntity): Boolean = {
-      val captureRequest = captureRequestParser.parse(entity.asString)
+      val captureRequest = CaptureRequestParser.parse(entity.asString)
       captureRequest == expectedCaptureRequest
     }
 
