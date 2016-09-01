@@ -1,17 +1,14 @@
 package com.wix.pay.fatzebra.it
 
 
-import com.google.api.client.http.javanet.NetHttpTransport
 import com.wix.pay.creditcard.{CreditCard, CreditCardOptionalFields, YearMonth}
 import com.wix.pay.fatzebra.FatzebraMatchers._
 import com.wix.pay.fatzebra._
-import com.wix.pay.fatzebra.model.{Purchase, Response}
 import com.wix.pay.fatzebra.testkit.FatzebraDriver
 import com.wix.pay.model.{CurrencyAmount, Customer, Deal}
 import com.wix.pay.{PaymentErrorException, PaymentGateway, PaymentRejectedException}
 import org.specs2.mutable.SpecWithJUnit
 import org.specs2.specification.Scope
-import spray.http.StatusCodes
 
 
 class FatzebraGatewayIT extends SpecWithJUnit {
@@ -39,7 +36,6 @@ class FatzebraGatewayIT extends SpecWithJUnit {
     val fatzebra: PaymentGateway = new FatzebraGateway(
       merchantParser = merchantParser,
       authorizationParser = authorizationParser,
-      requestFactory = new NetHttpTransport().createRequestFactory(),
       endpointUrl = s"http://localhost:$fatzebraPort"
     )
 
@@ -69,8 +65,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
         someDeal.id,
         someCustomerIpAddress,
         someCreditCard,
-        capture = false) errors(
-          StatusCodes.Unauthorized, new Response[Purchase](errors = List("Incorrect Username or Token")))
+        capture = false) failsOnInvalidUsername()
 
       fatzebra.authorize(
         merchantKey = merchantKey,
@@ -78,9 +73,10 @@ class FatzebraGatewayIT extends SpecWithJUnit {
         currencyAmount = someCurrencyAmount,
         customer = Some(someCustomer),
         deal = Some(someDeal)
-      ) must beAFailedTry(
-        check = beAnInstanceOf[PaymentErrorException]
-      )
+      ) must beAFailedTry.like {
+        case e: PaymentErrorException =>
+          e.message must contain("Incorrect Username or Token")
+      }
     }
 
     "gracefully fail on invalid deal" in new Ctx {

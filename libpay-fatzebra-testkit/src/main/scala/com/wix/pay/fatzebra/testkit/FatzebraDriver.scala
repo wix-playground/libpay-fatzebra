@@ -98,6 +98,13 @@ class FatzebraDriver(port: Int) {
             entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
+
+    def failsOnInvalidUsername(): Unit = {
+      errors(
+        statusCode = StatusCodes.Unauthorized,
+        response = new Response[Purchase](errors = List("Incorrect Username or Token"))
+      )
+    }
   }
 
   class CreatePurchaseCtx(username: String,

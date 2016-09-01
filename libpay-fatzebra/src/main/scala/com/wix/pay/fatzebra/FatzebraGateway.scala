@@ -7,12 +7,16 @@
 package com.wix.pay.fatzebra
 
 
-import com.google.api.client.http.{ByteArrayContent, GenericUrl, HttpRequestFactory}
+import java.io.{ByteArrayOutputStream, InputStream}
+import java.net.{HttpURLConnection, URL}
+import java.util.Base64
+
 import com.wix.pay.creditcard.CreditCard
 import com.wix.pay.fatzebra.model.Conversions._
 import com.wix.pay.fatzebra.model.{CaptureRequest, CreatePurchaseRequest, Purchase, Response}
 import com.wix.pay.model.{CurrencyAmount, Customer, Deal}
 import com.wix.pay.{PaymentErrorException, PaymentException, PaymentGateway, PaymentRejectedException}
+import org.apache.commons.io.IOUtils
 
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
@@ -23,8 +27,7 @@ object Endpoints {
   val sandbox = "https://gateway.sandbox.fatzebra.com.au/v1.0"
 }
 
-class FatzebraGateway(requestFactory: HttpRequestFactory,
-                      connectTimeout: Option[Duration] = None,
+class FatzebraGateway(connectTimeout: Option[Duration] = None,
                       readTimeout: Option[Duration] = None,
                       numberOfRetries: Int = 0,
                       endpointUrl: String = Endpoints.production,
@@ -110,26 +113,53 @@ class FatzebraGateway(requestFactory: HttpRequestFactory,
                             username: String,
                             password: String,
                             requestJson: String): Response[Purchase] = {
-    val httpRequest = requestFactory.buildPostRequest(
-      new GenericUrl(s"$endpointUrl$resource"),
-      new ByteArrayContent(
-        "application/json",
-        requestJson.getBytes("UTF-8")))
+    val body = requestJson.getBytes("UTF-8")
 
-    connectTimeout foreach (to => httpRequest.setConnectTimeout(to.toMillis.toInt))
-    readTimeout foreach (to => httpRequest.setReadTimeout(to.toMillis.toInt))
-    httpRequest.setNumberOfRetries(numberOfRetries)
-
-    httpRequest.getHeaders.setBasicAuthentication(username, password)
-    httpRequest.setThrowExceptionOnExecuteError(false)
-
-    val httpResponse = httpRequest.execute()
-
+    val url = new URL(s"$endpointUrl$resource")
+    val connection = url.openConnection().asInstanceOf[HttpURLConnection]
     try {
-      PurchaseResponseParser.parse(httpResponse.parseAsString())
+      connectTimeout foreach (duration => connection.setConnectTimeout(duration.toMillis.toInt))
+      readTimeout foreach (duration => connection.setReadTimeout(duration.toMillis.toInt))
+
+      connection.setDoOutput(true)
+      connection.setRequestMethod("POST")
+      connection.setRequestProperty("Content-Type", "application/json")
+      connection.setRequestProperty("Content-Length", body.length.toString)
+      connection.setRequestProperty("Authorization", s"Basic ${Base64.getEncoder.encodeToString(s"$username:$password".getBytes("UTF-8"))}")
+
+      val output = connection.getOutputStream
+      try {
+        output.write(body)
+      } finally {
+        output.close()
+      }
+
+      Try {
+        val in = connection.getInputStream
+        try {
+          PurchaseResponseParser.parse(readFullyAsString(in))
+        } finally {
+          in.close()
+        }
+      } match {
+        case Success(response) => response
+        case Failure(e) =>
+          val err = connection.getErrorStream
+          try {
+            PurchaseResponseParser.parse(readFullyAsString(err))
+          } finally {
+            err.close()
+          }
+      }
     } finally {
-      httpResponse.ignore()
+      connection.disconnect()
     }
+  }
+
+  private def readFullyAsString(in: InputStream): String = {
+    val baos = new ByteArrayOutputStream
+    IOUtils.copy(in, baos)
+    new String(baos.toByteArray, "UTF-8")
   }
 
   private def createPurchaseRequest(creditCard: CreditCard,
