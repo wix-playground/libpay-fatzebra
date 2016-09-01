@@ -201,7 +201,7 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
 object ApprovedPurchase {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if purchase.message == "Approved" => purchase.id
+      case Response(Some(purchase), _) if purchase.message.exists { _ == "Approved" } => purchase.id
       case _ =>
         None
     }
@@ -211,7 +211,7 @@ object ApprovedPurchase {
 object RejectedPurchase {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if purchase.message != "Approved" => purchase.message
+      case Response(Some(purchase), _) if purchase.message.forall { _ != "Approved" } => purchase.message
       case _ => None
     }
   }
