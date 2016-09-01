@@ -1,7 +1,23 @@
 package com.wix.pay.fatzebra.model
 
-case class Purchase(authorization: String, id: String,
-                    card_number: String, card_holder: String, card_expiry: String, card_token: String,
-                    amount: Int, decimal_amount: Double, successful: Option[Boolean], authorized: Boolean, message: String,
-                    reference: String, currency: String, transaction_id: String, settlement_date: String, transaction_date: String,
-                    response_code: String, captured: Boolean, captured_amount: Option[Int], rrn: String, cvv_match: String)
+case class Purchase(authorization: Option[String] = None,
+                    id: Option[String] = None,
+                    card_number: Option[String] = None,
+                    card_holder: Option[String] = None,
+                    card_expiry: Option[String] = None,
+                    card_token: Option[String] = None,
+                    amount: Option[Int] = None,
+                    decimal_amount: Option[Double] = None,
+                    successful: Option[Boolean] = None,
+                    authorized: Option[Boolean] = None,
+                    message: Option[String] = None,
+                    reference: Option[String] = None,
+                    currency: Option[String] = None,
+                    transaction_id: Option[String] = None,
+                    settlement_date: Option[String] = None,
+                    transaction_date: Option[String] = None,
+                    response_code: Option[String] = None,
+                    captured: Option[Boolean] = None,
+                    captured_amount: Option[Int] = None,
+                    rrn: Option[String] = None,
+                    cvv_match: Option[String] = None)

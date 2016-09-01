@@ -137,54 +137,34 @@ class FatzebraDriver(port: Int) {
       returns(
         statusCode = StatusCodes.Created,
         response = new Response[Purchase](Some(Purchase(
-          authorization = "55355",
-          id = purchaseId,
-          card_number = null,
-          card_holder = null,
-          card_expiry = null,
-          card_token = null,
-          amount = 1000,
-          decimal_amount = 10.0,
-          successful = None,
-          authorized = true,
-          message = "Approved",
-          reference = reference,
-          currency = currencyAmount.currency,
-          transaction_id = null,
-          settlement_date = null,
-          transaction_date = null,
-          response_code = "99",
-          captured = false,
-          captured_amount = null,
-          rrn = null,
-          cvv_match = "U"))))
+          authorization = Some("55355"),
+          id = Some(purchaseId),
+          amount = Some(1000),
+          decimal_amount = Some(10.0),
+          authorized = Some(true),
+          message = Some("Approved"),
+          reference = Some(reference),
+          currency = Some(currencyAmount.currency),
+          response_code = Some("99"),
+          captured = Some(false),
+          cvv_match = Some("U")))))
     }
 
     def isDeclined(purchaseId: String): Unit = {
       returns(
         statusCode = StatusCodes.OK,
         response = new Response[Purchase](Some(Purchase(
-          authorization = null,
-          id = purchaseId,
-          card_number = null,
-          card_holder = null,
-          card_expiry = null,
-          card_token = null,
-          amount = 1000,
-          decimal_amount = 10.0,
+          id = Some(purchaseId),
+          amount = Some(1000),
+          decimal_amount = Some(10.0),
           successful = Some(false),
-          authorized = false,
-          message = "Declined",
-          reference = reference,
-          currency = currencyAmount.currency,
-          transaction_id = null,
-          settlement_date = null,
-          transaction_date = null,
-          response_code = "99",
-          captured = false,
-          captured_amount = null,
-          rrn = null,
-          cvv_match = "U"))))
+          authorized = Some(false),
+          message = Some("Declined"),
+          reference = Some(reference),
+          currency = Some(currencyAmount.currency),
+          response_code = Some("99"),
+          captured = Some(false),
+          cvv_match = Some("U")))))
     }
   }
 
@@ -205,27 +185,18 @@ class FatzebraDriver(port: Int) {
       returns(
         statusCode = StatusCodes.OK,
         response = new Response[Purchase](Some(Purchase(
-          authorization = null,
-          id = purchaseId,
-          card_number = null,
-          card_holder = null,
-          card_expiry = null,
-          card_token = null,
-          amount = Conversions.toFatzebraAmount(amount),
-          decimal_amount = amount,
+          id = Some(purchaseId),
+          amount = Some(Conversions.toFatzebraAmount(amount)),
+          decimal_amount = Some(amount),
           successful = Some(true),
-          authorized = false,
-          message = "someMessage",
-          reference = "someReference",
-          currency = "USD",
-          transaction_id = null,
-          settlement_date = null,
-          transaction_date = null,
-          response_code = "0",
-          captured = true,
+          authorized = Some(false),
+          message = Some("someMessage"),
+          reference = Some("someReference"),
+          currency = Some("USD"),
+          response_code = Some("0"),
+          captured = Some(true),
           captured_amount = Some(Conversions.toFatzebraAmount(amount)),
-          rrn = null,
-          cvv_match = "U"))))
+          cvv_match = Some("U")))))
     }
   }
 }

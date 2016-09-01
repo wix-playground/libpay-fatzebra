@@ -137,7 +137,8 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
       Try {
         val in = connection.getInputStream
         try {
-          PurchaseResponseParser.parse(readFullyAsString(in))
+          val responseJson = readFullyAsString(in)
+          PurchaseResponseParser.parse(responseJson)
         } finally {
           in.close()
         }
@@ -146,7 +147,8 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
         case Failure(e) =>
           val err = connection.getErrorStream
           try {
-            PurchaseResponseParser.parse(readFullyAsString(err))
+            val errorResponseJson = readFullyAsString(err)
+            PurchaseResponseParser.parse(errorResponseJson)
           } finally {
             err.close()
           }
@@ -199,8 +201,7 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
 object ApprovedPurchase {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if purchase.message == "Approved" =>
-        Option(purchase.id)
+      case Response(Some(purchase), _) if purchase.message == "Approved" => purchase.id
       case _ =>
         None
     }
@@ -210,7 +211,7 @@ object ApprovedPurchase {
 object RejectedPurchase {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if purchase.message != "Approved" => Option(purchase.message)
+      case Response(Some(purchase), _) if purchase.message != "Approved" => purchase.message
       case _ => None
     }
   }
@@ -228,7 +229,7 @@ object ErroneousPurchase {
 object CapturedPurchase {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if purchase.captured => Option(purchase.id)
+      case Response(Some(purchase), _) if purchase.captured.getOrElse(false) => purchase.id
       case _ => None
     }
   }
@@ -237,7 +238,7 @@ object CapturedPurchase {
 object RejectedCapture {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if !purchase.captured => Option(purchase.message)
+      case Response(Some(purchase), _) if !purchase.captured.getOrElse(false) => purchase.message
       case _ => None
     }
   }
