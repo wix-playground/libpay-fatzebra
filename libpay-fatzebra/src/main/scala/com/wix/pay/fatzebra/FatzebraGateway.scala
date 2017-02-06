@@ -14,7 +14,7 @@ import java.util.Base64
 import com.wix.pay.creditcard.CreditCard
 import com.wix.pay.fatzebra.model.Conversions._
 import com.wix.pay.fatzebra.model.{CaptureRequest, CreatePurchaseRequest, Purchase, Response}
-import com.wix.pay.model.{CurrencyAmount, Customer, Deal}
+import com.wix.pay.model.{CurrencyAmount, Customer, Deal, Payment}
 import com.wix.pay.{PaymentErrorException, PaymentException, PaymentGateway, PaymentRejectedException}
 import org.apache.commons.io.IOUtils
 
@@ -35,15 +35,16 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
                       authorizationParser: FatzebraAuthorizationParser = new JsonFatzebraAuthorizationParser) extends PaymentGateway {
   override def authorize(merchantKey: String,
                          creditCard: CreditCard,
-                         currencyAmount: CurrencyAmount,
+                         payment: Payment,
                          customer: Option[Customer],
                          deal: Option[Deal]): Try[String] = {
     def authorizeOperation: String = {
       require(deal.isDefined, "Deal is mandatory for FatZebra")
       require(customer.isDefined, "Customer is mandatory for FatZebra")
+      require(payment.installments == 1, "FatZebra does not support installments")
 
       val merchant = merchantParser.parse(merchantKey)
-      val request = createPurchaseRequest(creditCard, currencyAmount, deal.get, customer.get, capture = false)
+      val request = createPurchaseRequest(creditCard, payment.currencyAmount, deal.get, customer.get, capture = false)
       val requestJson = CreatePurchaseRequestParser.stringify(request)
       val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
 
@@ -83,14 +84,15 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
 
   override def sale(merchantKey: String,
                     creditCard: CreditCard,
-                    currencyAmount: CurrencyAmount,
+                    payment: Payment,
                     customer: Option[Customer], deal: Option[Deal]): Try[String] = {
     def saleOperation: String = {
       require(deal.isDefined, "Deal is mandatory for FatZebra")
       require(customer.isDefined, "Customer is mandatory for FatZebra")
+      require(payment.installments == 1, "FatZebra does not support installments")
 
       val merchant = merchantParser.parse(merchantKey)
-      val request = createPurchaseRequest(creditCard, currencyAmount, deal.get, customer.get, capture = true)
+      val request = createPurchaseRequest(creditCard, payment.currencyAmount, deal.get, customer.get, capture = true)
       val requestJson = CreatePurchaseRequestParser.stringify(request)
       val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
 

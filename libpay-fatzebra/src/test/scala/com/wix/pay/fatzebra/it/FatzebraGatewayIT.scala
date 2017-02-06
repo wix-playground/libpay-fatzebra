@@ -5,7 +5,7 @@ import com.wix.pay.creditcard.{CreditCard, CreditCardOptionalFields, YearMonth}
 import com.wix.pay.fatzebra.FatzebraMatchers._
 import com.wix.pay.fatzebra._
 import com.wix.pay.fatzebra.testkit.FatzebraDriver
-import com.wix.pay.model.{CurrencyAmount, Customer, Deal}
+import com.wix.pay.model.{CurrencyAmount, Customer, Deal, Payment}
 import com.wix.pay.{PaymentErrorException, PaymentGateway, PaymentRejectedException}
 import org.specs2.mutable.SpecWithJUnit
 import org.specs2.specification.Scope
@@ -44,6 +44,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
 
   "authorize request via FatZebra gateway" should {
     val someCurrencyAmount = CurrencyAmount("USD", 33.3)
+    val somePayment = Payment(someCurrencyAmount, 1)
     val someCreditCard = CreditCard(
       "4012888818888",
       YearMonth(2020, 12),
@@ -70,7 +71,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       fatzebra.authorize(
         merchantKey = merchantKey,
         creditCard = someCreditCard,
-        currencyAmount = someCurrencyAmount,
+        payment = somePayment,
         customer = Some(someCustomer),
         deal = Some(someDeal)
       ) must beAFailedTry.like {
@@ -83,7 +84,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       fatzebra.authorize(
         merchantKey = merchantKey,
         creditCard = someCreditCard,
-        currencyAmount = someCurrencyAmount,
+        payment = somePayment,
         customer = Some(someCustomer),
         deal = None
       ) must beAFailedTry(
@@ -95,7 +96,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       fatzebra.authorize(
         merchantKey = merchantKey,
         creditCard = someCreditCard,
-        currencyAmount = someCurrencyAmount,
+        payment = somePayment,
         customer = None,
         deal = Some(someDeal)
       ) must beAFailedTry(
@@ -119,7 +120,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       fatzebra.authorize(
         merchantKey = merchantKey,
         creditCard = someCreditCard,
-        currencyAmount = someCurrencyAmount,
+        payment = somePayment,
         customer = Some(someCustomer),
         deal = Some(someDeal)
       ) must beASuccessfulTry(
@@ -146,7 +147,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       fatzebra.authorize(
         merchantKey = merchantKey,
         creditCard = someCreditCard,
-        currencyAmount = someCurrencyAmount,
+        payment = somePayment,
         customer = Some(someCustomer),
         deal = Some(someDeal)
       ) must beAFailedTry(
