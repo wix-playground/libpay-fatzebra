@@ -6,21 +6,19 @@
 \*                |/                                                 */
 package com.wix.pay.fatzebra
 
-
 import java.io.{ByteArrayOutputStream, InputStream}
 import java.net.{HttpURLConnection, URL}
 import java.util.Base64
 
 import com.wix.pay.creditcard.CreditCard
 import com.wix.pay.fatzebra.model.Conversions._
-import com.wix.pay.fatzebra.model.{CaptureRequest, CreatePurchaseRequest, Purchase, Response}
-import com.wix.pay.model.{CurrencyAmount, Customer, Deal, Payment}
+import com.wix.pay.fatzebra.model.{CaptureRequest, Purchase, Response}
+import com.wix.pay.model.{Customer, Deal, Payment}
 import com.wix.pay.{PaymentErrorException, PaymentException, PaymentGateway, PaymentRejectedException}
 import org.apache.commons.io.IOUtils
 
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
-
 
 object Endpoints {
   val production = "https://gateway.fatzebra.com.au/v1.0"
@@ -31,84 +29,73 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
                       readTimeout: Option[Duration] = None,
                       numberOfRetries: Int = 0,
                       endpointUrl: String = Endpoints.production,
+                      requestBuilder: FatZebraRequestBuilder = new FatZebraRequestBuilder(),
                       merchantParser: FatzebraMerchantParser = new JsonFatzebraMerchantParser,
                       authorizationParser: FatzebraAuthorizationParser = new JsonFatzebraAuthorizationParser) extends PaymentGateway {
   override def authorize(merchantKey: String,
                          creditCard: CreditCard,
                          payment: Payment,
                          customer: Option[Customer],
-                         deal: Option[Deal]): Try[String] = {
-    def authorizeOperation: String = {
-      require(deal.isDefined, "Deal is mandatory for FatZebra")
-      require(customer.isDefined, "Customer is mandatory for FatZebra")
-      require(payment.installments == 1, "FatZebra does not support installments")
+                         deal: Option[Deal]): Try[String] = executeSafe {
+    require(deal.isDefined, "Deal is mandatory for FatZebra")
+    require(customer.isDefined, "Customer is mandatory for FatZebra")
+    require(payment.installments == 1, "FatZebra does not support installments")
 
-      val merchant = merchantParser.parse(merchantKey)
-      val request = createPurchaseRequest(creditCard, payment.currencyAmount, deal.get, customer.get, capture = false)
-      val requestJson = CreatePurchaseRequestParser.stringify(request)
-      val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
+    val merchant = merchantParser.parse(merchantKey)
+    val request = requestBuilder.createPurchaseRequest(creditCard, payment, deal, customer, capture = false)
+    val requestJson = CreatePurchaseRequestParser.stringify(request)
+    val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
 
-      response match {
-        case ApprovedPurchase(authorization) => authorizationParser.stringify(FatzebraAuthorization(authorization))
-        case RejectedPurchase(message) => throw PaymentRejectedException(message)
-        case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
-        case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
-      }
+    response match {
+      case ApprovedPurchase(authorization) => authorizationParser.stringify(FatzebraAuthorization(authorization))
+      case RejectedPurchase(message) => throw PaymentRejectedException(message)
+      case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
+      case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
     }
-
-    executeSafe(authorizeOperation)
   }
 
-  override def capture(merchantKey: String, authorizationKey: String, amount: Double): Try[String] = {
-    def captureOperation: String = {
-      val merchant = merchantParser.parse(merchantKey)
-      val authorization = authorizationParser.parse(authorizationKey)
-      val request = CaptureRequest(amount = toFatzebraAmount(amount))
-      val requestJson = CaptureRequestParser.stringify(request)
-      val response = submitRequest(
-        s"/purchases/${authorization.purchaseId}/capture",
-        merchant.username,
-        merchant.password,
-        requestJson)
+  override def capture(merchantKey: String, authorizationKey: String, amount: Double): Try[String] = executeSafe {
+    val merchant = merchantParser.parse(merchantKey)
+    val authorization = authorizationParser.parse(authorizationKey)
+    val request = CaptureRequest(amount = toFatzebraAmount(amount))
+    val requestJson = CaptureRequestParser.stringify(request)
+    val response = submitRequest(
+      s"/purchases/${authorization.purchaseId}/capture",
+      merchant.username,
+      merchant.password,
+      requestJson)
 
-      response match {
-        case CapturedPurchase(purchaseId) => purchaseId
-        case RejectedCapture(message) => throw PaymentRejectedException(message)
-        case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
-        case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
-      }
+    response match {
+      case CapturedPurchase(purchaseId) => purchaseId
+      case RejectedCapture(message) => throw PaymentRejectedException(message)
+      case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
+      case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
     }
-
-    executeSafe(captureOperation)
   }
 
   override def sale(merchantKey: String,
                     creditCard: CreditCard,
                     payment: Payment,
-                    customer: Option[Customer], deal: Option[Deal]): Try[String] = {
-    def saleOperation: String = {
-      require(deal.isDefined, "Deal is mandatory for FatZebra")
-      require(customer.isDefined, "Customer is mandatory for FatZebra")
-      require(payment.installments == 1, "FatZebra does not support installments")
+                    customer: Option[Customer], deal: Option[Deal]): Try[String] = executeSafe {
+    require(deal.isDefined, "Deal is mandatory for FatZebra")
+    require(customer.isDefined, "Customer is mandatory for FatZebra")
+    require(payment.installments == 1, "FatZebra does not support installments")
 
-      val merchant = merchantParser.parse(merchantKey)
-      val request = createPurchaseRequest(creditCard, payment.currencyAmount, deal.get, customer.get, capture = true)
-      val requestJson = CreatePurchaseRequestParser.stringify(request)
-      val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
+    val merchant = merchantParser.parse(merchantKey)
+    val request = requestBuilder.createPurchaseRequest(creditCard, payment, deal, customer, capture = true)
+    val requestJson = CreatePurchaseRequestParser.stringify(request)
+    val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
 
-      response match {
-        case ApprovedPurchase(purchaseId) => purchaseId
-        case RejectedPurchase(message) => throw PaymentRejectedException(message)
-        case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
-        case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
-      }
+    response match {
+      case ApprovedPurchase(purchaseId) => purchaseId
+      case RejectedPurchase(message) => throw PaymentRejectedException(message)
+      case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
+      case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
     }
-
-    executeSafe(saleOperation)
   }
 
   override def voidAuthorization(merchantKey: String, authorizationKey: String): Try[String] = {
-    Try (authorizationParser.parse(authorizationKey).purchaseId)
+    Try(authorizationParser.parse(authorizationKey).purchaseId)
   }
 
   private def submitRequest(resource: String,
@@ -166,29 +153,6 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
     new String(baos.toByteArray, "UTF-8")
   }
 
-  private def createPurchaseRequest(creditCard: CreditCard,
-                                    currencyAmount: CurrencyAmount,
-                                    deal: Deal,
-                                    customer: Customer,
-                                    capture: Boolean): CreatePurchaseRequest = {
-    require(creditCard.holderName.nonEmpty, "Credit card holder name is mandatory for FatZebra")
-    require(deal.id.nonEmpty, "Deal ID is mandatory for FatZebra")
-    require(customer.ipAddress.nonEmpty, "Customer IP address is mandatory for FatZebra")
-
-    CreatePurchaseRequest(
-      card_holder = creditCard.holderName.get,
-      card_number = creditCard.number,
-      card_expiry = toFatzebraYearMonth(
-        year = creditCard.expiration.year,
-        month = creditCard.expiration.month),
-      cvv = creditCard.csc.orNull,
-      amount = toFatzebraAmount(currencyAmount.amount),
-      reference = deal.id,
-      customer_ip = customer.ipAddress.get,
-      currency = currencyAmount.currency,
-      capture = capture)
-  }
-
   private def executeSafe(f: => String): Try[String] = {
     Try {
       f
@@ -203,7 +167,7 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
 object ApprovedPurchase {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if purchase.message.exists { _ == "Approved" } => purchase.id
+      case Response(Some(purchase), _) if purchase.message.contains("Approved") => purchase.id
       case _ =>
         None
     }
@@ -213,7 +177,7 @@ object ApprovedPurchase {
 object RejectedPurchase {
   def unapply(response: Response[Purchase]): Option[String] = {
     response match {
-      case Response(Some(purchase), _) if purchase.message.forall { _ != "Approved" } => purchase.message
+      case Response(Some(purchase), _) if !purchase.message.contains("Approved") => purchase.message
       case _ => None
     }
   }
