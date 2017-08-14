@@ -37,10 +37,6 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
                          payment: Payment,
                          customer: Option[Customer],
                          deal: Option[Deal]): Try[String] = executeSafe {
-    require(deal.isDefined, "Deal is mandatory for FatZebra")
-    require(customer.isDefined, "Customer is mandatory for FatZebra")
-    require(payment.installments == 1, "FatZebra does not support installments")
-
     val merchant = merchantParser.parse(merchantKey)
     val request = requestBuilder.createPurchaseRequest(creditCard, payment, deal, customer, capture = false)
     val requestJson = CreatePurchaseRequestParser.stringify(request)
@@ -77,10 +73,6 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
                     creditCard: CreditCard,
                     payment: Payment,
                     customer: Option[Customer], deal: Option[Deal]): Try[String] = executeSafe {
-    require(deal.isDefined, "Deal is mandatory for FatZebra")
-    require(customer.isDefined, "Customer is mandatory for FatZebra")
-    require(payment.installments == 1, "FatZebra does not support installments")
-
     val merchant = merchantParser.parse(merchantKey)
     val request = requestBuilder.createPurchaseRequest(creditCard, payment, deal, customer, capture = true)
     val requestJson = CreatePurchaseRequestParser.stringify(request)
