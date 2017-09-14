@@ -21,7 +21,7 @@ class FatzebraDriver(port: Int) {
   }
 
   def reset() {
-    probe.handlers.clear()
+    probe.reset()
   }
 
   def requests: Seq[HttpRequest] = probe.requests
