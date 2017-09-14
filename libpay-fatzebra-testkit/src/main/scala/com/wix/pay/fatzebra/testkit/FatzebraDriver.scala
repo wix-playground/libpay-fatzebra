@@ -77,7 +77,7 @@ class FatzebraDriver(port: Int) {
         cvv_match = Some("U"))))
     )
 
-    private def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
+    def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
       probe.handlers += {
         case HttpRequest(HttpMethods.POST, Uri.Path("/purchases"), _, _, _) =>
           HttpResponse(
