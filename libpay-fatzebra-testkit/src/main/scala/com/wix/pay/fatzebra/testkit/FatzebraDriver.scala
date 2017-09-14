@@ -1,6 +1,5 @@
 package com.wix.pay.fatzebra.testkit
 
-
 import com.google.api.client.util.Base64
 import com.wix.hoopoe.http.testkit.EmbeddedHttpProbe
 import com.wix.pay.creditcard.CreditCard
@@ -9,7 +8,6 @@ import com.wix.pay.fatzebra.model._
 import com.wix.pay.fatzebra.{CaptureRequestParser, CreatePurchaseRequestParser, PurchaseResponseParser}
 import com.wix.pay.model.CurrencyAmount
 import spray.http._
-
 
 class FatzebraDriver(port: Int) {
   private val probe = new EmbeddedHttpProbe(port, EmbeddedHttpProbe.NotFoundHandler)
@@ -26,6 +24,9 @@ class FatzebraDriver(port: Int) {
     probe.handlers.clear()
   }
 
+  def requests: Seq[HttpRequest] = probe.requests
+  def lastRequest: HttpRequest = requests.last
+
   def aCreatePurchaseRequestFor(username: String,
                                 password: String,
                                 currencyAmount: CurrencyAmount,
@@ -41,6 +42,49 @@ class FatzebraDriver(port: Int) {
       customerIpAddress = customerIpAddress,
       creditCard = creditCard,
       capture = capture)
+  }
+
+  def anyCreatePurchaseRequest = new {
+    def isAccepted(purchaseId: String = "somePurchaseId", reference: String = "someReference", currency: String = "USD"): Unit = returns(
+      statusCode = StatusCodes.Created,
+      response = new Response[Purchase](Some(Purchase(
+        authorization = Some("55355"),
+        id = Some(purchaseId),
+        amount = Some(1000),
+        decimal_amount = Some(10.0),
+        authorized = Some(true),
+        message = Some("Approved"),
+        reference = Some(reference),
+        currency = Some(currency),
+        response_code = Some("99"),
+        captured = Some(false),
+        cvv_match = Some("U"))))
+    )
+
+    def isDeclined(purchaseId: String = "somePurchaseId", reference: String = "someReference", currency: String = "USD"): Unit = returns(
+      statusCode = StatusCodes.OK,
+      response = new Response[Purchase](Some(Purchase(
+        id = Some(purchaseId),
+        amount = Some(1000),
+        decimal_amount = Some(10.0),
+        successful = Some(false),
+        authorized = Some(false),
+        message = Some("Declined"),
+        reference = Some(reference),
+        currency = Some(currency),
+        response_code = Some("99"),
+        captured = Some(false),
+        cvv_match = Some("U"))))
+    )
+
+    private def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
+      probe.handlers += {
+        case HttpRequest(HttpMethods.POST, Uri.Path("/purchases"), _, _, _) =>
+          HttpResponse(
+            status = statusCode,
+            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
+      }
+    }
   }
 
   def aCaptureRequestFor(username: String,
