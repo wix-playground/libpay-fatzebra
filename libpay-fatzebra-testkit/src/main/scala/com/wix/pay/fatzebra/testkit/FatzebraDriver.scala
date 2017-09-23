@@ -2,6 +2,7 @@ package com.wix.pay.fatzebra.testkit
 
 import com.google.api.client.util.Base64
 import com.wix.hoopoe.http.testkit.EmbeddedHttpProbe
+import com.wix.hoopoe.http.testkit.EmbeddedHttpProbe.NotFoundHandler
 import com.wix.pay.creditcard.CreditCard
 import com.wix.pay.fatzebra.model.Conversions._
 import com.wix.pay.fatzebra.model._
@@ -9,8 +10,8 @@ import com.wix.pay.fatzebra.{CaptureRequestParser, CreatePurchaseRequestParser, 
 import com.wix.pay.model.CurrencyAmount
 import spray.http._
 
-class FatzebraDriver(port: Int) {
-  private val probe = new EmbeddedHttpProbe(port, EmbeddedHttpProbe.NotFoundHandler)
+class FatzebraDriver(probe: EmbeddedHttpProbe) {
+  def this(port: Int) = this(new EmbeddedHttpProbe(port, NotFoundHandler))
 
   def start() {
     probe.doStart()
