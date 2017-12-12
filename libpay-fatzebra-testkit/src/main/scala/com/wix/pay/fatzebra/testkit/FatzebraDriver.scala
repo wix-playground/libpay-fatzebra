@@ -14,8 +14,9 @@ import com.wix.pay.fatzebra.{CaptureRequestParser, CreatePurchaseRequestParser, 
 import com.wix.pay.model.CurrencyAmount
 
 
-class FatzebraDriver(port: Int) {
-  private val server: StubWebServer = aStubWebServer.onPort(port).build
+class FatzebraDriver(server: StubWebServer) {
+
+  def this(port: Int) = this(aStubWebServer.onPort(port).build)
 
   def start(): Unit = server.start()
 
