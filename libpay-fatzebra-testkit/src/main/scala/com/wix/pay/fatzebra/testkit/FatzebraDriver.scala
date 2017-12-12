@@ -1,31 +1,29 @@
 package com.wix.pay.fatzebra.testkit
 
+
+import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model._
 import com.google.api.client.util.Base64
-import com.wix.hoopoe.http.testkit.EmbeddedHttpProbe
-import com.wix.hoopoe.http.testkit.EmbeddedHttpProbe.NotFoundHandler
+import com.wix.e2e.http.api.StubWebServer
+import com.wix.e2e.http.client.extractors.HttpMessageExtractors._
+import com.wix.e2e.http.server.WebServerFactory.aStubWebServer
 import com.wix.pay.creditcard.CreditCard
 import com.wix.pay.fatzebra.model.Conversions._
 import com.wix.pay.fatzebra.model._
 import com.wix.pay.fatzebra.{CaptureRequestParser, CreatePurchaseRequestParser, PurchaseResponseParser}
 import com.wix.pay.model.CurrencyAmount
-import spray.http._
 
-class FatzebraDriver(probe: EmbeddedHttpProbe) {
-  def this(port: Int) = this(new EmbeddedHttpProbe(port, NotFoundHandler))
 
-  def start() {
-    probe.doStart()
-  }
+class FatzebraDriver(port: Int) {
+  private val server: StubWebServer = aStubWebServer.onPort(port).build
 
-  def stop() {
-    probe.doStop()
-  }
+  def start(): Unit = server.start()
 
-  def reset() {
-    probe.reset()
-  }
+  def stop(): Unit = server.stop()
 
-  def requests: Seq[HttpRequest] = probe.requests
+  def reset(): Unit = server.replaceWith()
+
+  def requests: Seq[HttpRequest] = server.recordedRequests
   def lastRequest: HttpRequest = requests.last
 
   def aCreatePurchaseRequestFor(username: String,
@@ -46,42 +44,52 @@ class FatzebraDriver(probe: EmbeddedHttpProbe) {
   }
 
   def anyCreatePurchaseRequest = new {
-    def isAccepted(purchaseId: String = "somePurchaseId", reference: String = "someReference", currency: String = "USD"): Unit = returns(
-      statusCode = StatusCodes.Created,
-      response = new Response[Purchase](Some(Purchase(
-        authorization = Some("55355"),
-        id = Some(purchaseId),
-        amount = Some(1000),
-        decimal_amount = Some(10.0),
-        authorized = Some(true),
-        message = Some("Approved"),
-        reference = Some(reference),
-        currency = Some(currency),
-        response_code = Some("99"),
-        captured = Some(false),
-        cvv_match = Some("U"))))
-    )
+    def getsAccepted(purchaseId: String = "somePurchaseId",
+                     reference: String = "someReference",
+                     currency: String = "USD"): Unit = {
+      returns(
+        statusCode = StatusCodes.Created,
+        response = new Response[Purchase](Some(Purchase(
+          authorization = Some("55355"),
+          id = Some(purchaseId),
+          amount = Some(1000),
+          decimal_amount = Some(10.0),
+          authorized = Some(true),
+          message = Some("Approved"),
+          reference = Some(reference),
+          currency = Some(currency),
+          response_code = Some("99"),
+          captured = Some(false),
+          cvv_match = Some("U")))))
+    }
 
-    def isDeclined(purchaseId: String = "somePurchaseId", reference: String = "someReference", currency: String = "USD"): Unit = returns(
-      statusCode = StatusCodes.OK,
-      response = new Response[Purchase](Some(Purchase(
-        id = Some(purchaseId),
-        amount = Some(1000),
-        decimal_amount = Some(10.0),
-        successful = Some(false),
-        authorized = Some(false),
-        message = Some("Declined"),
-        reference = Some(reference),
-        currency = Some(currency),
-        response_code = Some("99"),
-        captured = Some(false),
-        cvv_match = Some("U"))))
-    )
+    def getsDeclined(purchaseId: String = "somePurchaseId",
+                     reference: String = "someReference",
+                     currency: String = "USD"): Unit = {
+      returns(
+        statusCode = StatusCodes.OK,
+        response = new Response[Purchase](Some(Purchase(
+          id = Some(purchaseId),
+          amount = Some(1000),
+          decimal_amount = Some(10.0),
+          successful = Some(false),
+          authorized = Some(false),
+          message = Some("Declined"),
+          reference = Some(reference),
+          currency = Some(currency),
+          response_code = Some("99"),
+          captured = Some(false),
+          cvv_match = Some("U")))))
+    }
 
     def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
-      probe.handlers += {
-        case HttpRequest(HttpMethods.POST, Uri.Path("/purchases"), _, _, _) =>
-          HttpResponse(
+      server.appendAll {
+        case HttpRequest(
+          HttpMethods.POST,
+          Path("/purchases"),
+          _,
+          _,
+          _) => HttpResponse(
             status = statusCode,
             entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
@@ -92,55 +100,52 @@ class FatzebraDriver(probe: EmbeddedHttpProbe) {
                          password: String,
                          purchaseId: String,
                          amount: Double): CaptureCtx = {
-    new CaptureCtx(
-      username = username,
-      password = password,
-      purchaseId = purchaseId,
-      amount = amount)
+    new CaptureCtx(username = username, password = password, purchaseId = purchaseId, amount = amount)
   }
 
   abstract class Ctx(val resource: String, username: String, password: String) {
-    def isStubbedRequestEntity(entity: HttpEntity, headers: List[HttpHeader]): Boolean = {
+    def isStubbedRequestEntity(entity: HttpEntity, headers: Seq[HttpHeader]): Boolean = {
       isAuthorized(headers) && verifyContent(entity)
     }
 
-    private def isAuthorized(headers: List[HttpHeader]): Boolean = {
+    private def isAuthorized(headers: Seq[HttpHeader]): Boolean = {
       val expectedValue = s"Basic ${Base64.encodeBase64String(s"$username:$password".getBytes("UTF-8"))}"
       for (header <- headers) {
         if (header.name == "Authorization") {
           return header.value == expectedValue
         }
       }
+
       false
     }
 
     protected def verifyContent(entity: HttpEntity): Boolean
 
     def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
-      probe.handlers += {
+      server.appendAll {
         case HttpRequest(
-        HttpMethods.POST,
-        Uri.Path(`resource`),
-        headers,
-        entity,
-        _) if isStubbedRequestEntity(entity, headers) =>
-          HttpResponse(
-            status = statusCode,
-            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
+          HttpMethods.POST,
+          Path(`resource`),
+          headers,
+          entity,
+          _) if isStubbedRequestEntity(entity, headers) =>
+            HttpResponse(
+              status = statusCode,
+              entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
 
     def errors(statusCode: StatusCode, response: Response[Purchase]): Unit = {
-      probe.handlers += {
+      server.appendAll {
         case HttpRequest(
-        HttpMethods.POST,
-        Uri.Path(`resource`),
-        headers,
-        entity,
-        _) if isStubbedRequestEntity(entity, headers) =>
-          HttpResponse(
-            status = statusCode,
-            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
+          HttpMethods.POST,
+          Path(`resource`),
+          headers,
+          entity,
+          _) if isStubbedRequestEntity(entity, headers) =>
+            HttpResponse(
+              status = statusCode,
+              entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
 
@@ -164,8 +169,7 @@ class FatzebraDriver(probe: EmbeddedHttpProbe) {
       card_number = creditCard.number,
       card_expiry = toFatzebraYearMonth(
         year = creditCard.expiration.year,
-        month = creditCard.expiration.month
-      ),
+        month = creditCard.expiration.month),
       cvv = creditCard.csc.orNull,
       amount = toFatzebraAmount(currencyAmount.amount),
       reference = reference,
@@ -174,7 +178,7 @@ class FatzebraDriver(probe: EmbeddedHttpProbe) {
       capture = capture)
 
     override def verifyContent(entity: HttpEntity): Boolean = {
-      val createPurchaseRequest = CreatePurchaseRequestParser.parse(entity.asString)
+      val createPurchaseRequest = CreatePurchaseRequestParser.parse(entity.extractAsString)
       createPurchaseRequest == expectedCreatePurchaseRequest
     }
 
@@ -195,7 +199,7 @@ class FatzebraDriver(probe: EmbeddedHttpProbe) {
           cvv_match = Some("U")))))
     }
 
-    def isDeclined(purchaseId: String): Unit = {
+    def getsDeclined(purchaseId: String): Unit = {
       returns(
         statusCode = StatusCodes.OK,
         response = new Response[Purchase](Some(Purchase(
@@ -217,12 +221,10 @@ class FatzebraDriver(probe: EmbeddedHttpProbe) {
                    password: String,
                    purchaseId: String,
                    amount: Double) extends Ctx(s"/purchases/$purchaseId/capture", username, password) {
-    private val expectedCaptureRequest = CaptureRequest(
-      amount = toFatzebraAmount(amount)
-    )
+    private val expectedCaptureRequest = CaptureRequest(amount = toFatzebraAmount(amount))
 
     override def verifyContent(entity: HttpEntity): Boolean = {
-      val captureRequest = CaptureRequestParser.parse(entity.asString)
+      val captureRequest = CaptureRequestParser.parse(entity.extractAsString)
       captureRequest == expectedCaptureRequest
     }
 

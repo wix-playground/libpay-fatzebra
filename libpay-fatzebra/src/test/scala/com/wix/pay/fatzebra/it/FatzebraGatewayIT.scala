@@ -142,7 +142,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
         someCustomerIpAddress,
         someCreditCard,
         capture = false
-      ) isDeclined(somePurchaseId)
+      ) getsDeclined(somePurchaseId)
 
       fatzebra.authorize(
         merchantKey = merchantKey,
