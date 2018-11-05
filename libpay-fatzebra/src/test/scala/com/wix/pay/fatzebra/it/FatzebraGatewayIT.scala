@@ -10,6 +10,8 @@ import com.wix.pay.{PaymentErrorException, PaymentGateway, PaymentRejectedExcept
 import org.specs2.mutable.SpecWithJUnit
 import org.specs2.specification.Scope
 
+import scala.util.Try
+
 
 class FatzebraGatewayIT extends SpecWithJUnit {
   val fatzebraPort = 9036
@@ -80,6 +82,28 @@ class FatzebraGatewayIT extends SpecWithJUnit {
       }
     }
 
+    "gracefully fail on invalid merchant key" in new Ctx {
+      driver.aCreatePurchaseRequestFor(
+        someMerchant.username,
+        someMerchant.password,
+        someCurrencyAmount,
+        someDeal.id,
+        someCustomerIpAddress,
+        someCreditCard,
+        capture = false) failsOnInvalidUsernameWithTransactionId "someTransactionId"
+
+      private val triedString: Try[String] = fatzebra.authorize(
+        merchantKey = merchantKey,
+        creditCard = someCreditCard,
+        payment = somePayment,
+        customer = Some(someCustomer),
+        deal = Some(someDeal)
+      )
+      triedString must beAFailedTry.like {
+        case e: PaymentErrorException => e must beEqualTo(PaymentErrorException("List(Incorrect Username or Token)", Some("someTransactionId")))
+      }
+    }
+
     "gracefully fail on invalid deal" in new Ctx {
       fatzebra.authorize(
         merchantKey = merchantKey,
@@ -142,7 +166,7 @@ class FatzebraGatewayIT extends SpecWithJUnit {
         someCustomerIpAddress,
         someCreditCard,
         capture = false
-      ) getsDeclined(somePurchaseId)
+      ) getsDeclined somePurchaseId
 
       fatzebra.authorize(
         merchantKey = merchantKey,
@@ -154,8 +178,31 @@ class FatzebraGatewayIT extends SpecWithJUnit {
         check = beAnInstanceOf[PaymentRejectedException]
       )
     }
-  }
 
+    "gracefully fail on rejected card with transactionId" in new Ctx {
+      val somePurchaseId = "somePurchaseId"
+
+      driver.aCreatePurchaseRequestFor(
+        someMerchant.username,
+        someMerchant.password,
+        someCurrencyAmount,
+        someDeal.id,
+        someCustomerIpAddress,
+        someCreditCard,
+        capture = false
+      ) getsDeclined somePurchaseId
+
+      fatzebra.authorize(
+        merchantKey = merchantKey,
+        creditCard = someCreditCard,
+        payment = somePayment,
+        customer = Some(someCustomer),
+        deal = Some(someDeal)
+      ) must beAFailedTry.like {
+        case e: PaymentRejectedException => e must beEqualTo(PaymentRejectedException("Declined", Some(somePurchaseId)))
+      }
+    }
+  }
 
   "capture request via FatZebra gateway" should {
     "successfully yield a transaction ID on valid request" in new Ctx {

@@ -42,12 +42,14 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
     val requestJson = CreatePurchaseRequestParser.stringify(request)
     val response = submitRequest("/purchases", merchant.username, merchant.password, requestJson)
 
-    response match {
+    val res = response match {
       case ApprovedPurchase(authorization) => authorizationParser.stringify(FatzebraAuthorization(authorization))
-      case RejectedPurchase(message) => throw PaymentRejectedException(message)
-      case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
+      case RejectedPurchase(message, transactionId) => throw PaymentRejectedException(message, transactionId)
+      case ErroneousPurchase(errors, transactionId) => throw PaymentErrorException(errors, transactionId)
       case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
     }
+    println(res.toString)
+    res
   }
 
   override def capture(merchantKey: String, authorizationKey: String, amount: Double): Try[String] = executeSafe {
@@ -63,8 +65,8 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
 
     response match {
       case CapturedPurchase(purchaseId) => purchaseId
-      case RejectedCapture(message) => throw PaymentRejectedException(message)
-      case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
+      case RejectedCapture(message, transactionId) => throw PaymentRejectedException(message, transactionId)
+      case ErroneousPurchase(errors, transactionId) => throw PaymentErrorException(errors, transactionId)
       case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
     }
   }
@@ -80,8 +82,8 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
 
     response match {
       case ApprovedPurchase(purchaseId) => purchaseId
-      case RejectedPurchase(message) => throw PaymentRejectedException(message)
-      case ErroneousPurchase(errors) => throw PaymentErrorException(errors)
+      case RejectedPurchase(message, transactionId) => throw PaymentRejectedException(message, transactionId)
+      case ErroneousPurchase(errors, transactionId) => throw PaymentErrorException(errors, transactionId)
       case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
     }
   }
@@ -125,7 +127,7 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
         }
       } match {
         case Success(response) => response
-        case Failure(e) =>
+        case Failure(_) =>
           val err = connection.getErrorStream
           try {
             val errorResponseJson = readFullyAsString(err)
@@ -167,18 +169,18 @@ object ApprovedPurchase {
 }
 
 object RejectedPurchase {
-  def unapply(response: Response[Purchase]): Option[String] = {
+  def unapply(response: Response[Purchase]): Option[(String, Option[String])] = {
     response match {
-      case Response(Some(purchase), _) if !purchase.message.contains("Approved") => purchase.message
+      case Response(Some(purchase), _) if !purchase.message.contains("Approved") => purchase.message.map(_ -> purchase.id)
       case _ => None
     }
   }
 }
 
 object ErroneousPurchase {
-  def unapply(response: Response[Purchase]): Option[String] = {
+  def unapply(response: Response[Purchase]): Option[(String, Option[String])] = {
     response match {
-      case Response(None, Some(errors)) if errors.nonEmpty => Option(errors.toString())
+      case Response(purchase, Some(errors)) if errors.nonEmpty => Option(errors.toString()).map(_ -> purchase.flatMap(_.id))
       case _ => None
     }
   }
@@ -194,9 +196,9 @@ object CapturedPurchase {
 }
 
 object RejectedCapture {
-  def unapply(response: Response[Purchase]): Option[String] = {
+  def unapply(response: Response[Purchase]): Option[(String, Option[String])] = {
     response match {
-      case Response(Some(purchase), _) if !purchase.captured.getOrElse(false) => purchase.message
+      case Response(Some(purchase), _) if !purchase.captured.getOrElse(false) => purchase.message.map(_ -> purchase.id)
       case _ => None
     }
   }
