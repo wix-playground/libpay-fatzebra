@@ -48,7 +48,6 @@ class FatzebraGateway(connectTimeout: Option[Duration] = None,
       case ErroneousPurchase(errors, transactionId) => throw PaymentErrorException(errors, transactionId)
       case _ => throw new IllegalArgumentException("FatZebra response is unexpectedly empty")
     }
-    println(res.toString)
     res
   }
 
