@@ -16,7 +16,6 @@
 	<relativePath>libpay-fatzebra-parent</relativePath>
     </parent>
 
-
     <scm>
         <url>https://github.com/wix/libpay-fatzebra</url>
         <connection>scm:git:git://github.com/wix/libpay-fatzebra.git</connection>

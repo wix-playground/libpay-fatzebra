@@ -29,6 +29,10 @@
                 <role>owner</role>
             </roles>
         </developer>
+        <developer>
+            <name>Oleksandr Samsonov</name>
+            <email>oleksandrsa@wix.com</email>
+        </developer>
     </developers>
 
 

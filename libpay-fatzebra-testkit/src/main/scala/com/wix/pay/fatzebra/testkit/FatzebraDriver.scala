@@ -25,6 +25,7 @@ class FatzebraDriver(server: StubWebServer) {
   def reset(): Unit = server.replaceWith()
 
   def requests: Seq[HttpRequest] = server.recordedRequests
+
   def lastRequest: HttpRequest = requests.last
 
   def aCreatePurchaseRequestFor(username: String,
@@ -86,13 +87,13 @@ class FatzebraDriver(server: StubWebServer) {
     def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
       server.appendAll {
         case HttpRequest(
-          HttpMethods.POST,
-          Path("/purchases"),
-          _,
-          _,
-          _) => HttpResponse(
-            status = statusCode,
-            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
+        HttpMethods.POST,
+        Path("/purchases"),
+        _,
+        _,
+        _) => HttpResponse(
+          status = statusCode,
+          entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
   }
@@ -125,28 +126,28 @@ class FatzebraDriver(server: StubWebServer) {
     def returns(statusCode: StatusCode, response: Response[Purchase]): Unit = {
       server.appendAll {
         case HttpRequest(
-          HttpMethods.POST,
-          Path(`resource`),
-          headers,
-          entity,
-          _) if isStubbedRequestEntity(entity, headers) =>
-            HttpResponse(
-              status = statusCode,
-              entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
+        HttpMethods.POST,
+        Path(`resource`),
+        headers,
+        entity,
+        _) if isStubbedRequestEntity(entity, headers) =>
+          HttpResponse(
+            status = statusCode,
+            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
 
     def errors(statusCode: StatusCode, response: Response[Purchase]): Unit = {
       server.appendAll {
         case HttpRequest(
-          HttpMethods.POST,
-          Path(`resource`),
-          headers,
-          entity,
-          _) if isStubbedRequestEntity(entity, headers) =>
-            HttpResponse(
-              status = statusCode,
-              entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
+        HttpMethods.POST,
+        Path(`resource`),
+        headers,
+        entity,
+        _) if isStubbedRequestEntity(entity, headers) =>
+          HttpResponse(
+            status = statusCode,
+            entity = HttpEntity(ContentTypes.`application/json`, PurchaseResponseParser.stringify(response)))
       }
     }
 
@@ -155,6 +156,13 @@ class FatzebraDriver(server: StubWebServer) {
         statusCode = StatusCodes.Unauthorized,
         response = new Response[Purchase](errors = List("Incorrect Username or Token"))
       )
+    }
+
+    def failsOnInvalidUsernameWithTransactionId(id: String): Unit = {
+      val res = PurchaseResponseParser.stringify(Response(response = Some(Purchase(id = Some(id))), errors = Some(List("Incorrect Username or Token"))))
+      errors(
+        statusCode = StatusCodes.Unauthorized,
+        response = Response(response = Some(Purchase(id = Some(id))), errors = Some(List("Incorrect Username or Token"))))
     }
   }
 
@@ -247,4 +255,5 @@ class FatzebraDriver(server: StubWebServer) {
           cvv_match = Some("U")))))
     }
   }
+
 }
